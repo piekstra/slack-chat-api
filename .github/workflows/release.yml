@@ -32,6 +32,18 @@ jobs:
           tar -czvf slack-cli_${{ github.ref_name }}_darwin_amd64.tar.gz slack-cli
           rm slack-cli
 
+      - name: Build Linux ARM64
+        run: |
+          GOOS=linux GOARCH=arm64 go build -o slack-cli .
+          tar -czvf slack-cli_${{ github.ref_name }}_linux_arm64.tar.gz slack-cli
+          rm slack-cli
+
+      - name: Build Linux AMD64
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o slack-cli .
+          tar -czvf slack-cli_${{ github.ref_name }}_linux_amd64.tar.gz slack-cli
+          rm slack-cli
+
       - name: Generate checksums
         run: |
           shasum -a 256 *.tar.gz > checksums.txt
@@ -45,58 +57,81 @@ jobs:
             checksums.txt
           generate_release_notes: true
 
-      - name: Update Homebrew Formula
+      - name: Update Homebrew Cask
         env:
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
         run: |
           VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
+          VERSION_NUM="${VERSION#v}"
 
-          ARM64_SHA=$(shasum -a 256 slack-cli_${{ github.ref_name }}_darwin_arm64.tar.gz | cut -d' ' -f1)
-          AMD64_SHA=$(shasum -a 256 slack-cli_${{ github.ref_name }}_darwin_amd64.tar.gz | cut -d' ' -f1)
+          DARWIN_ARM64_SHA=$(shasum -a 256 slack-cli_${{ github.ref_name }}_darwin_arm64.tar.gz | cut -d' ' -f1)
+          DARWIN_AMD64_SHA=$(shasum -a 256 slack-cli_${{ github.ref_name }}_darwin_amd64.tar.gz | cut -d' ' -f1)
+          LINUX_ARM64_SHA=$(shasum -a 256 slack-cli_${{ github.ref_name }}_linux_arm64.tar.gz | cut -d' ' -f1)
+          LINUX_AMD64_SHA=$(shasum -a 256 slack-cli_${{ github.ref_name }}_linux_amd64.tar.gz | cut -d' ' -f1)
 
           git clone https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/piekstra/homebrew-tap.git
           cd homebrew-tap
 
-          cat > Formula/slack-cli.rb << EOF
-          class SlackCli < Formula
+          mkdir -p Casks
+
+          cat > Casks/slack-cli.rb << 'CASKEOF'
+          cask "slack-cli" do
+            version "VERSION_PLACEHOLDER"
+            license "MIT"
+
+            name "slack-cli"
             desc "Command-line interface for Slack"
             homepage "https://github.com/piekstra/slack-cli"
-            version "${VERSION}"
-            license "MIT"
+
+            binary "slack-cli"
 
             on_macos do
               on_arm do
-                url "https://github.com/piekstra/slack-cli/releases/download/${{ github.ref_name }}/slack-cli_${{ github.ref_name }}_darwin_arm64.tar.gz"
-                sha256 "${ARM64_SHA}"
+                url "https://github.com/piekstra/slack-cli/releases/download/v#{version}/slack-cli_v#{version}_darwin_arm64.tar.gz"
+                sha256 "DARWIN_ARM64_PLACEHOLDER"
               end
               on_intel do
-                url "https://github.com/piekstra/slack-cli/releases/download/${{ github.ref_name }}/slack-cli_${{ github.ref_name }}_darwin_amd64.tar.gz"
-                sha256 "${AMD64_SHA}"
+                url "https://github.com/piekstra/slack-cli/releases/download/v#{version}/slack-cli_v#{version}_darwin_amd64.tar.gz"
+                sha256 "DARWIN_AMD64_PLACEHOLDER"
               end
             end
 
-            def install
-              bin.install "slack-cli"
+            on_linux do
+              on_arm do
+                url "https://github.com/piekstra/slack-cli/releases/download/v#{version}/slack-cli_v#{version}_linux_arm64.tar.gz"
+                sha256 "LINUX_ARM64_PLACEHOLDER"
+              end
+              on_intel do
+                url "https://github.com/piekstra/slack-cli/releases/download/v#{version}/slack-cli_v#{version}_linux_amd64.tar.gz"
+                sha256 "LINUX_AMD64_PLACEHOLDER"
+              end
             end
 
-            def caveats
-              <<~EOS
-                To configure slack-cli, run:
-                  slack-cli config set-token <your-slack-api-token>
-
-                Or set the SLACK_API_TOKEN environment variable.
-              EOS
+            postflight do
+              system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/slack-cli"]
             end
 
-            test do
-              assert_match "slack-cli", shell_output("#{bin}/slack-cli --help")
-            end
+            caveats <<~EOS
+              To configure slack-cli, run:
+                slack-cli config set-token
+
+              On macOS, your token is stored securely in the system Keychain.
+              On Linux, your token is stored in ~/.config/slack-cli/credentials.
+            EOS
           end
-          EOF
+          CASKEOF
+
+          sed -i '' "s/VERSION_PLACEHOLDER/${VERSION_NUM}/g" Casks/slack-cli.rb
+          sed -i '' "s/DARWIN_ARM64_PLACEHOLDER/${DARWIN_ARM64_SHA}/g" Casks/slack-cli.rb
+          sed -i '' "s/DARWIN_AMD64_PLACEHOLDER/${DARWIN_AMD64_SHA}/g" Casks/slack-cli.rb
+          sed -i '' "s/LINUX_ARM64_PLACEHOLDER/${LINUX_ARM64_SHA}/g" Casks/slack-cli.rb
+          sed -i '' "s/LINUX_AMD64_PLACEHOLDER/${LINUX_AMD64_SHA}/g" Casks/slack-cli.rb
+
+          # Remove old formula if it exists
+          rm -f Formula/slack-cli.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/slack-cli.rb
-          git commit -m "Update slack-cli to ${VERSION}"
+          git add -A
+          git commit -m "Update slack-cli to ${VERSION_NUM}"
           git push

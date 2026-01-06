@@ -18,12 +18,22 @@ var configCmd = &cobra.Command{
 var setTokenCmd = &cobra.Command{
 	Use:   "set-token [token]",
 	Short: "Set the Slack API token",
-	Long: `Set the Slack API token to be stored securely in the macOS Keychain.
+	Long: `Set the Slack API token for authentication.
 
-If no token is provided as an argument, you will be prompted to enter it.
-The token is stored securely and is not visible in process listings or shell history.`,
+On macOS: Token is stored securely in the system Keychain.
+On Linux: Token is stored in ~/.config/slack-cli/credentials (file permissions 0600).
+
+If no token is provided as an argument, you will be prompted to enter it.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Warn Linux users about file-based storage
+		if !keychain.IsSecureStorage() {
+			fmt.Println("Warning: On Linux, your token will be stored in a config file")
+			fmt.Println("         (~/.config/slack-cli/credentials) with restricted permissions (0600).")
+			fmt.Println("         This is less secure than macOS Keychain storage.")
+			fmt.Println()
+		}
+
 		var token string
 
 		if len(args) > 0 {
@@ -46,7 +56,11 @@ The token is stored securely and is not visible in process listings or shell his
 			return fmt.Errorf("failed to store token: %w", err)
 		}
 
-		fmt.Println("API token stored securely in Keychain")
+		if keychain.IsSecureStorage() {
+			fmt.Println("API token stored securely in Keychain")
+		} else {
+			fmt.Println("API token stored in ~/.config/slack-cli/credentials")
+		}
 		return nil
 	},
 }
@@ -59,7 +73,11 @@ var deleteTokenCmd = &cobra.Command{
 			return fmt.Errorf("failed to delete token: %w", err)
 		}
 
-		fmt.Println("API token deleted from Keychain")
+		if keychain.IsSecureStorage() {
+			fmt.Println("API token deleted from Keychain")
+		} else {
+			fmt.Println("API token deleted from config file")
+		}
 		return nil
 	},
 }
@@ -77,7 +95,12 @@ var showConfigCmd = &cobra.Command{
 
 		// Mask the token for display
 		masked := token[:8] + strings.Repeat("*", len(token)-12) + token[len(token)-4:]
-		fmt.Printf("API Token: %s (from Keychain)\n", masked)
+
+		if keychain.IsSecureStorage() {
+			fmt.Printf("API Token: %s (from Keychain)\n", masked)
+		} else {
+			fmt.Printf("API Token: %s (from config file)\n", masked)
+		}
 
 		return nil
 	},

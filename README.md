@@ -8,7 +8,7 @@ A command-line interface for Slack.
 
 ```bash
 brew tap piekstra/tap
-brew install slack-cli
+brew install --cask slack-cli
 ```
 
 ### From Source
@@ -24,6 +24,15 @@ git clone https://github.com/piekstra/slack-cli.git
 cd slack-cli
 make build
 ```
+
+## Platform Support
+
+| Platform | Credential Storage |
+|----------|-------------------|
+| macOS | Secure (Keychain) |
+| Linux | Config file (`~/.config/slack-cli/credentials`) |
+
+**Note:** On Linux, credentials are stored in a file with restricted permissions (0600). While not as secure as macOS Keychain, this is standard practice for CLI tools on Linux.
 
 ## Authentication
 

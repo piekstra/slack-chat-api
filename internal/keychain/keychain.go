@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -12,10 +14,10 @@ const (
 	apiTokenKey = "api_token"
 )
 
-// GetAPIToken retrieves the Slack API token from keychain or environment
+// GetAPIToken retrieves the Slack API token from keychain/config or environment
 func GetAPIToken() (string, error) {
-	// Try keychain first
-	token, err := getFromKeychain(apiTokenKey)
+	// Try secure storage first (keychain on macOS, config file on Linux)
+	token, err := getCredential(apiTokenKey)
 	if err == nil && token != "" {
 		return token, nil
 	}
@@ -29,15 +31,45 @@ func GetAPIToken() (string, error) {
 	return "", fmt.Errorf("no API token found - run 'slack-cli config set-token' or set SLACK_API_TOKEN")
 }
 
-// SetAPIToken stores the Slack API token in keychain
+// SetAPIToken stores the Slack API token
 func SetAPIToken(token string) error {
-	return setInKeychain(apiTokenKey, token)
+	return setCredential(apiTokenKey, token)
 }
 
-// DeleteAPIToken removes the Slack API token from keychain
+// DeleteAPIToken removes the Slack API token
 func DeleteAPIToken() error {
-	return deleteFromKeychain(apiTokenKey)
+	return deleteCredential(apiTokenKey)
 }
+
+// IsSecureStorage returns true if using secure storage (macOS Keychain)
+func IsSecureStorage() bool {
+	return runtime.GOOS == "darwin"
+}
+
+// --- Platform-specific implementations ---
+
+func getCredential(key string) (string, error) {
+	if runtime.GOOS == "darwin" {
+		return getFromKeychain(key)
+	}
+	return getFromConfigFile(key)
+}
+
+func setCredential(key, value string) error {
+	if runtime.GOOS == "darwin" {
+		return setInKeychain(key, value)
+	}
+	return setInConfigFile(key, value)
+}
+
+func deleteCredential(key string) error {
+	if runtime.GOOS == "darwin" {
+		return deleteFromKeychain(key)
+	}
+	return deleteFromConfigFile(key)
+}
+
+// --- macOS Keychain ---
 
 func getFromKeychain(account string) (string, error) {
 	cmd := exec.Command("security", "find-generic-password",
@@ -72,4 +104,91 @@ func deleteFromKeychain(account string) error {
 		"-a", account)
 
 	return cmd.Run()
+}
+
+// --- Config File (Linux fallback) ---
+
+func getConfigDir() string {
+	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
+		return filepath.Join(xdgConfig, "slack-cli")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "slack-cli")
+}
+
+func getConfigFilePath() string {
+	return filepath.Join(getConfigDir(), "credentials")
+}
+
+func getFromConfigFile(key string) (string, error) {
+	data, err := os.ReadFile(getConfigFilePath())
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 && parts[0] == key {
+			return parts[1], nil
+		}
+	}
+
+	return "", fmt.Errorf("key not found")
+}
+
+func setInConfigFile(key, value string) error {
+	configDir := getConfigDir()
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return err
+	}
+
+	configPath := getConfigFilePath()
+
+	// Read existing config
+	existing := make(map[string]string)
+	if data, err := os.ReadFile(configPath); err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				existing[parts[0]] = parts[1]
+			}
+		}
+	}
+
+	// Update value
+	existing[key] = value
+
+	// Write back
+	var lines []string
+	for k, v := range existing {
+		lines = append(lines, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	return os.WriteFile(configPath, []byte(strings.Join(lines, "\n")+"\n"), 0600)
+}
+
+func deleteFromConfigFile(key string) error {
+	configPath := getConfigFilePath()
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	var newLines []string
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 && parts[0] != key {
+			newLines = append(newLines, line)
+		}
+	}
+
+	if len(newLines) == 0 {
+		return os.Remove(configPath)
+	}
+
+	return os.WriteFile(configPath, []byte(strings.Join(newLines, "\n")+"\n"), 0600)
 }
