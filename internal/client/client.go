@@ -224,24 +224,42 @@ func (c *Client) GetChannelInfo(channelID string) (*Channel, error) {
 	return &result.Channel, nil
 }
 
-// ListUsers returns all users
+// ListUsers returns all users (handles pagination automatically)
 func (c *Client) ListUsers(limit int) ([]User, error) {
-	params := url.Values{}
-	params.Set("limit", fmt.Sprintf("%d", limit))
+	var allUsers []User
+	cursor := ""
 
-	body, err := c.get("users.list", params)
-	if err != nil {
-		return nil, err
+	for {
+		params := url.Values{}
+		params.Set("limit", fmt.Sprintf("%d", limit))
+		if cursor != "" {
+			params.Set("cursor", cursor)
+		}
+
+		body, err := c.get("users.list", params)
+		if err != nil {
+			return nil, err
+		}
+
+		var result struct {
+			Members          []User `json:"members"`
+			ResponseMetadata struct {
+				NextCursor string `json:"next_cursor"`
+			} `json:"response_metadata"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, err
+		}
+
+		allUsers = append(allUsers, result.Members...)
+
+		if result.ResponseMetadata.NextCursor == "" {
+			break
+		}
+		cursor = result.ResponseMetadata.NextCursor
 	}
 
-	var result struct {
-		Members []User `json:"members"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-
-	return result.Members, nil
+	return allUsers, nil
 }
 
 // GetUserInfo returns user details
@@ -315,95 +333,183 @@ func (c *Client) DeleteMessage(channel, ts string) error {
 	return err
 }
 
-// GetChannelHistory returns message history
+// GetChannelHistory returns message history (handles pagination to reach requested limit)
 func (c *Client) GetChannelHistory(channel string, limit int, oldest, latest string) ([]Message, error) {
-	params := url.Values{}
-	params.Set("channel", channel)
-	params.Set("limit", fmt.Sprintf("%d", limit))
-	if oldest != "" {
-		params.Set("oldest", oldest)
-	}
-	if latest != "" {
-		params.Set("latest", latest)
+	var allMessages []Message
+	cursor := ""
+	remaining := limit
+
+	for remaining > 0 {
+		params := url.Values{}
+		params.Set("channel", channel)
+		// Request up to 200 at a time (Slack recommended max)
+		batchSize := remaining
+		if batchSize > 200 {
+			batchSize = 200
+		}
+		params.Set("limit", fmt.Sprintf("%d", batchSize))
+		if oldest != "" {
+			params.Set("oldest", oldest)
+		}
+		if latest != "" {
+			params.Set("latest", latest)
+		}
+		if cursor != "" {
+			params.Set("cursor", cursor)
+		}
+
+		body, err := c.get("conversations.history", params)
+		if err != nil {
+			return nil, err
+		}
+
+		var result struct {
+			Messages         []Message `json:"messages"`
+			ResponseMetadata struct {
+				NextCursor string `json:"next_cursor"`
+			} `json:"response_metadata"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, err
+		}
+
+		allMessages = append(allMessages, result.Messages...)
+		remaining -= len(result.Messages)
+
+		if result.ResponseMetadata.NextCursor == "" {
+			break
+		}
+		cursor = result.ResponseMetadata.NextCursor
 	}
 
-	body, err := c.get("conversations.history", params)
-	if err != nil {
-		return nil, err
+	// Trim to exact limit if we got more
+	if len(allMessages) > limit {
+		allMessages = allMessages[:limit]
 	}
 
-	var result struct {
-		Messages []Message `json:"messages"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-
-	return result.Messages, nil
+	return allMessages, nil
 }
 
-// GetThreadReplies returns replies to a thread
+// GetThreadReplies returns replies to a thread (handles pagination to reach requested limit)
 func (c *Client) GetThreadReplies(channel, threadTS string, limit int) ([]Message, error) {
-	params := url.Values{}
-	params.Set("channel", channel)
-	params.Set("ts", threadTS)
-	params.Set("limit", fmt.Sprintf("%d", limit))
+	var allMessages []Message
+	cursor := ""
+	remaining := limit
 
-	body, err := c.get("conversations.replies", params)
-	if err != nil {
-		return nil, err
+	for remaining > 0 {
+		params := url.Values{}
+		params.Set("channel", channel)
+		params.Set("ts", threadTS)
+		// Request up to 200 at a time (Slack recommended max)
+		batchSize := remaining
+		if batchSize > 200 {
+			batchSize = 200
+		}
+		params.Set("limit", fmt.Sprintf("%d", batchSize))
+		if cursor != "" {
+			params.Set("cursor", cursor)
+		}
+
+		body, err := c.get("conversations.replies", params)
+		if err != nil {
+			return nil, err
+		}
+
+		var result struct {
+			Messages         []Message `json:"messages"`
+			ResponseMetadata struct {
+				NextCursor string `json:"next_cursor"`
+			} `json:"response_metadata"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, err
+		}
+
+		allMessages = append(allMessages, result.Messages...)
+		remaining -= len(result.Messages)
+
+		if result.ResponseMetadata.NextCursor == "" {
+			break
+		}
+		cursor = result.ResponseMetadata.NextCursor
 	}
 
-	var result struct {
-		Messages []Message `json:"messages"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	// Trim to exact limit if we got more
+	if len(allMessages) > limit {
+		allMessages = allMessages[:limit]
 	}
 
-	return result.Messages, nil
+	return allMessages, nil
 }
 
-// SearchMessages searches for messages
+// SearchMessages searches for messages (handles page-based pagination to reach requested count)
 func (c *Client) SearchMessages(query, sort, sortDir string, count int) ([]Message, error) {
-	params := url.Values{}
-	params.Set("query", query)
-	params.Set("sort", sort)
-	params.Set("sort_dir", sortDir)
-	params.Set("count", fmt.Sprintf("%d", count))
+	var allMessages []Message
+	page := 1
+	remaining := count
 
-	body, err := c.get("search.messages", params)
-	if err != nil {
-		return nil, err
+	for remaining > 0 && page <= 100 { // Slack max page is 100
+		params := url.Values{}
+		params.Set("query", query)
+		params.Set("sort", sort)
+		params.Set("sort_dir", sortDir)
+		// Request up to 100 at a time (Slack max per page)
+		batchSize := remaining
+		if batchSize > 100 {
+			batchSize = 100
+		}
+		params.Set("count", fmt.Sprintf("%d", batchSize))
+		params.Set("page", fmt.Sprintf("%d", page))
+
+		body, err := c.get("search.messages", params)
+		if err != nil {
+			return nil, err
+		}
+
+		var result struct {
+			Messages struct {
+				Total   int `json:"total"`
+				Matches []struct {
+					Text    string `json:"text"`
+					TS      string `json:"ts"`
+					User    string `json:"user"`
+					Channel struct {
+						ID   string `json:"id"`
+						Name string `json:"name"`
+					} `json:"channel"`
+				} `json:"matches"`
+				Paging struct {
+					Pages int `json:"pages"`
+				} `json:"paging"`
+			} `json:"messages"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, err
+		}
+
+		for _, m := range result.Messages.Matches {
+			allMessages = append(allMessages, Message{
+				Text: m.Text,
+				TS:   m.TS,
+				User: m.User,
+			})
+		}
+
+		remaining -= len(result.Messages.Matches)
+
+		// Stop if no more pages or we got fewer results than requested
+		if page >= result.Messages.Paging.Pages || len(result.Messages.Matches) < batchSize {
+			break
+		}
+		page++
 	}
 
-	var result struct {
-		Messages struct {
-			Matches []struct {
-				Text    string `json:"text"`
-				TS      string `json:"ts"`
-				User    string `json:"user"`
-				Channel struct {
-					ID   string `json:"id"`
-					Name string `json:"name"`
-				} `json:"channel"`
-			} `json:"matches"`
-		} `json:"messages"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	// Trim to exact count if we got more
+	if len(allMessages) > count {
+		allMessages = allMessages[:count]
 	}
 
-	var messages []Message
-	for _, m := range result.Messages.Matches {
-		messages = append(messages, Message{
-			Text: m.Text,
-			TS:   m.TS,
-			User: m.User,
-		})
-	}
-
-	return messages, nil
+	return allMessages, nil
 }
 
 // AddReaction adds an emoji reaction
