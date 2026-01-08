@@ -19,7 +19,11 @@ var messagesCmd = &cobra.Command{
 var sendCmd = &cobra.Command{
 	Use:   "send <channel> <text>",
 	Short: "Send a message to a channel",
-	Args:  cobra.ExactArgs(2),
+	Long: `Send a message to a channel.
+
+By default, messages are sent using Slack Block Kit formatting for a more
+refined appearance. Use --simple to send plain text messages instead.`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := client.New()
 		if err != nil {
@@ -28,12 +32,16 @@ var sendCmd = &cobra.Command{
 
 		threadTS, _ := cmd.Flags().GetString("thread")
 		blocksJSON, _ := cmd.Flags().GetString("blocks")
+		simple, _ := cmd.Flags().GetBool("simple")
 
 		var blocks []interface{}
 		if blocksJSON != "" {
 			if err := json.Unmarshal([]byte(blocksJSON), &blocks); err != nil {
 				return fmt.Errorf("invalid blocks JSON: %w", err)
 			}
+		} else if !simple {
+			// Default to block style for a more refined appearance
+			blocks = buildDefaultBlocks(args[1])
 		}
 
 		msg, err := c.SendMessage(args[0], args[1], threadTS, blocks)
@@ -55,7 +63,11 @@ var sendCmd = &cobra.Command{
 var updateCmd = &cobra.Command{
 	Use:   "update <channel> <timestamp> <text>",
 	Short: "Update an existing message",
-	Args:  cobra.ExactArgs(3),
+	Long: `Update an existing message.
+
+By default, messages are updated using Slack Block Kit formatting for a more
+refined appearance. Use --simple to update with plain text instead.`,
+	Args: cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := client.New()
 		if err != nil {
@@ -63,12 +75,16 @@ var updateCmd = &cobra.Command{
 		}
 
 		blocksJSON, _ := cmd.Flags().GetString("blocks")
+		simple, _ := cmd.Flags().GetBool("simple")
 
 		var blocks []interface{}
 		if blocksJSON != "" {
 			if err := json.Unmarshal([]byte(blocksJSON), &blocks); err != nil {
 				return fmt.Errorf("invalid blocks JSON: %w", err)
 			}
+		} else if !simple {
+			// Default to block style for a more refined appearance
+			blocks = buildDefaultBlocks(args[2])
 		}
 
 		if err := c.UpdateMessage(args[0], args[1], args[2], blocks); err != nil {
@@ -226,10 +242,12 @@ func init() {
 
 	messagesCmd.AddCommand(sendCmd)
 	sendCmd.Flags().String("thread", "", "Thread timestamp for reply")
-	sendCmd.Flags().String("blocks", "", "Block Kit blocks as JSON array")
+	sendCmd.Flags().String("blocks", "", "Block Kit blocks as JSON array (overrides default block formatting)")
+	sendCmd.Flags().Bool("simple", false, "Send as plain text without block formatting")
 
 	messagesCmd.AddCommand(updateCmd)
-	updateCmd.Flags().String("blocks", "", "Block Kit blocks as JSON array")
+	updateCmd.Flags().String("blocks", "", "Block Kit blocks as JSON array (overrides default block formatting)")
+	updateCmd.Flags().Bool("simple", false, "Update as plain text without block formatting")
 	messagesCmd.AddCommand(deleteCmd)
 
 	messagesCmd.AddCommand(historyCmd)
@@ -264,4 +282,18 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// buildDefaultBlocks creates a Block Kit section block with mrkdwn formatting.
+// This provides a more refined appearance compared to plain text messages.
+func buildDefaultBlocks(text string) []interface{} {
+	return []interface{}{
+		map[string]interface{}{
+			"type": "section",
+			"text": map[string]interface{}{
+				"type": "mrkdwn",
+				"text": text,
+			},
+		},
+	}
 }
