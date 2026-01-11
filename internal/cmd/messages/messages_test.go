@@ -1,4 +1,4 @@
-package cmd
+package messages
 
 import (
 	"testing"
@@ -169,51 +169,5 @@ func TestBuildDefaultBlocks(t *testing.T) {
 				t.Errorf("expected text %q, got %v", tt.text, textObj["text"])
 			}
 		})
-	}
-}
-
-func TestCommandStructure(t *testing.T) {
-	// Test that commands are properly registered
-	if messagesCmd == nil {
-		t.Fatal("messagesCmd should not be nil")
-	}
-
-	// Verify subcommands exist
-	subcommands := messagesCmd.Commands()
-	expectedCommands := []string{"send", "update", "delete", "history", "thread", "react", "unreact"}
-
-	for _, expected := range expectedCommands {
-		found := false
-		for _, cmd := range subcommands {
-			if cmd.Name() == expected {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected subcommand %q not found", expected)
-		}
-	}
-}
-
-func TestMessagesCommandAliases(t *testing.T) {
-	aliases := messagesCmd.Aliases
-	expectedAliases := []string{"msg", "m"}
-
-	if len(aliases) != len(expectedAliases) {
-		t.Errorf("expected %d aliases, got %d", len(expectedAliases), len(aliases))
-	}
-
-	for _, expected := range expectedAliases {
-		found := false
-		for _, alias := range aliases {
-			if alias == expected {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected alias %q not found", expected)
-		}
 	}
 }

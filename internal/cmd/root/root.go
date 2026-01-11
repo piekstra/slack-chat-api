@@ -1,4 +1,4 @@
-package cmd
+package root
 
 import (
 	"fmt"
@@ -6,11 +6,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/piekstra/slack-cli/internal/cmd/channels"
+	"github.com/piekstra/slack-cli/internal/cmd/config"
+	"github.com/piekstra/slack-cli/internal/cmd/messages"
+	"github.com/piekstra/slack-cli/internal/cmd/users"
+	"github.com/piekstra/slack-cli/internal/cmd/workspace"
+	"github.com/piekstra/slack-cli/internal/output"
 	"github.com/piekstra/slack-cli/internal/version"
-)
-
-var (
-	outputJSON bool
 )
 
 var rootCmd = &cobra.Command{
@@ -37,8 +39,15 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	rootCmd.PersistentFlags().BoolVar(&output.JSON, "json", false, "Output in JSON format")
 
 	// Set custom version template to include commit and build date
 	rootCmd.SetVersionTemplate("slack-cli " + version.Info() + "\n")
+
+	// Add subcommands
+	rootCmd.AddCommand(channels.NewCmd())
+	rootCmd.AddCommand(users.NewCmd())
+	rootCmd.AddCommand(messages.NewCmd())
+	rootCmd.AddCommand(workspace.NewCmd())
+	rootCmd.AddCommand(config.NewCmd())
 }

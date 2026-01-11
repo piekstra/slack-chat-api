@@ -7,7 +7,8 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - main: ./cmd/slack-cli
+    env:
       - CGO_ENABLED=1
     goos:
       - darwin
@@ -16,6 +17,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
+      - -X github.com/piekstra/slack-cli/internal/version.Version={{.Version}}
+      - -X github.com/piekstra/slack-cli/internal/version.Commit={{.Commit}}
+      - -X github.com/piekstra/slack-cli/internal/version.Date={{.Date}}
 
 archives:
   - format: tar.gz
