@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/piekstra/slack-chat-api/compare/v2.1.0...v2.2.0) (2026-01-12)
+
+
+### Features
+
+* Rename project from slack-cli to slack-chat-api ([#37](https://github.com/piekstra/slack-chat-api/issues/37)) ([b03b09e](https://github.com/piekstra/slack-chat-api/commit/b03b09e794f0a41c6f2b1dc1ceed316cebde3b50))
+
 ## [2.1.0](https://github.com/piekstra/slack-cli/compare/v2.0.0...v2.1.0) (2026-01-12)
 
 
