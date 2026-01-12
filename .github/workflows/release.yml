@@ -1,12 +1,13 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build (e.g., v2.1.0)'
+        description: 'Tag to build (e.g., v3.1.0)'
         required: true
         type: string
 
@@ -17,7 +18,7 @@ jobs:
   release:
     runs-on: macos-latest
     env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ github.ref_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
