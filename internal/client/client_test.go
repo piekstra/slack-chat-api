@@ -819,8 +819,8 @@ func TestClient_ListChannels_PaginationWithLimit(t *testing.T) {
 			// Should NOT reach here with limit=3
 			t.Error("should not fetch second page when limit already reached")
 			resp = map[string]interface{}{
-				"ok":       true,
-				"channels": []map[string]interface{}{{"id": "C4", "name": "ch4"}},
+				"ok":                true,
+				"channels":          []map[string]interface{}{{"id": "C4", "name": "ch4"}},
 				"response_metadata": map[string]string{"next_cursor": ""},
 			}
 		}
@@ -889,8 +889,8 @@ func TestClient_ListUsers_PaginationWithLimit(t *testing.T) {
 		} else {
 			t.Error("should not fetch second page when limit already reached")
 			resp = map[string]interface{}{
-				"ok":      true,
-				"members": []map[string]interface{}{{"id": "U3", "name": "user3"}},
+				"ok":                true,
+				"members":           []map[string]interface{}{{"id": "U3", "name": "user3"}},
 				"response_metadata": map[string]string{"next_cursor": ""},
 			}
 		}
