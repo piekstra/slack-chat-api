@@ -1,6 +1,8 @@
 package channels
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"github.com/piekstra/slack-cli/internal/client"
@@ -32,6 +34,12 @@ func runUnarchive(channelID string, opts *unarchiveOptions, c *client.Client) er
 	}
 
 	if err := c.UnarchiveChannel(channelID); err != nil {
+		if strings.Contains(err.Error(), "not_in_channel") {
+			output.Println("Error: Cannot unarchive channel.")
+			output.Println("This is a Slack API limitation: bot tokens (xoxb-) cannot unarchive channels.")
+			output.Println("Workaround: Use a user token (xoxp-) or unarchive via the Slack UI.")
+			return err
+		}
 		return err
 	}
 

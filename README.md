@@ -323,6 +323,16 @@ Commands have convenient aliases:
 | `NO_COLOR` | Disable colored output when set |
 | `XDG_CONFIG_HOME` | Custom config directory (default: `~/.config`) |
 
+## Known Limitations
+
+### Unarchiving Channels
+
+Bot tokens (`xoxb-`) cannot unarchive channels due to a [Slack API limitation](https://api.slack.com/methods/conversations.unarchive). When a channel is archived, the bot is automatically removed from it, and bot tokens require membership to unarchive.
+
+**Workarounds:**
+- Unarchive channels via the Slack UI
+- Use a user token (`xoxp-`) instead of a bot token
+
 ## License
 
 MIT

@@ -364,3 +364,21 @@ func TestRunArchive_InvalidChannelID(t *testing.T) {
 		})
 	}
 }
+
+func TestRunUnarchive_NotInChannel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/conversations.unarchive", r.URL.Path)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":    false,
+			"error": "not_in_channel",
+		})
+	}))
+	defer server.Close()
+
+	c := client.NewWithConfig(server.URL, "test-token", nil)
+	opts := &unarchiveOptions{}
+
+	err := runUnarchive("C123", opts, c)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not_in_channel")
+}
