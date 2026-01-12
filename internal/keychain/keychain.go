@@ -46,6 +46,26 @@ func IsSecureStorage() bool {
 	return runtime.GOOS == "darwin"
 }
 
+// HasStoredToken returns true if a token is stored in keychain/config (not env var)
+func HasStoredToken() bool {
+	token, err := getCredential(apiTokenKey)
+	return err == nil && token != ""
+}
+
+// GetTokenSource returns where the current token is stored
+func GetTokenSource() string {
+	if token, err := getCredential(apiTokenKey); err == nil && token != "" {
+		if runtime.GOOS == "darwin" {
+			return "Keychain"
+		}
+		return "config file"
+	}
+	if os.Getenv("SLACK_API_TOKEN") != "" {
+		return "environment variable"
+	}
+	return ""
+}
+
 // --- Platform-specific implementations ---
 
 func getCredential(key string) (string, error) {

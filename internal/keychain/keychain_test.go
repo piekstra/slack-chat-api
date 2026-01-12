@@ -308,3 +308,97 @@ func TestConfigFile_ValueWithEquals(t *testing.T) {
 		t.Errorf("expected %s, got %s", valueWithEquals, value)
 	}
 }
+
+func TestHasStoredToken_WithToken(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Skipping on macOS - keychain tests require manual setup")
+	}
+
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	// Initially no token
+	if HasStoredToken() {
+		t.Error("expected no stored token initially")
+	}
+
+	// Set a token
+	err := setInConfigFile(apiTokenKey, "xoxb-test-token")
+	if err != nil {
+		t.Fatalf("setInConfigFile failed: %v", err)
+	}
+
+	// Now should have a token
+	if !HasStoredToken() {
+		t.Error("expected stored token after set")
+	}
+}
+
+func TestHasStoredToken_EnvVarOnly(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Skipping on macOS - keychain tests require manual setup")
+	}
+
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Setenv("SLACK_API_TOKEN", "xoxb-env-token")
+
+	// HasStoredToken should return false when only env var is set
+	if HasStoredToken() {
+		t.Error("expected false when only env var is set")
+	}
+}
+
+func TestGetTokenSource_ConfigFile(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Skipping on macOS - keychain tests require manual setup")
+	}
+
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	// Clear env var
+	originalValue := os.Getenv("SLACK_API_TOKEN")
+	defer func() {
+		if originalValue != "" {
+			_ = os.Setenv("SLACK_API_TOKEN", originalValue)
+		} else {
+			_ = os.Unsetenv("SLACK_API_TOKEN")
+		}
+	}()
+	_ = os.Unsetenv("SLACK_API_TOKEN")
+
+	// No token - should return empty string
+	source := GetTokenSource()
+	if source != "" {
+		t.Errorf("expected empty string for no token, got %s", source)
+	}
+
+	// Set a token in config file
+	err := setInConfigFile(apiTokenKey, "xoxb-test-token")
+	if err != nil {
+		t.Fatalf("setInConfigFile failed: %v", err)
+	}
+
+	// Should return "config file" on non-darwin
+	source = GetTokenSource()
+	if source != "config file" {
+		t.Errorf("expected 'config file', got %s", source)
+	}
+}
+
+func TestGetTokenSource_EnvVar(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Skipping on macOS - keychain tests require manual setup")
+	}
+
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Setenv("SLACK_API_TOKEN", "xoxb-env-token")
+
+	// When only env var is set (no config file)
+	source := GetTokenSource()
+	if source != "environment variable" {
+		t.Errorf("expected 'environment variable', got %s", source)
+	}
+}

@@ -34,11 +34,8 @@ func runShow(opts *showOptions) error {
 	// Mask the token for display
 	masked := token[:8] + strings.Repeat("*", len(token)-12) + token[len(token)-4:]
 
-	if keychain.IsSecureStorage() {
-		output.Printf("API Token: %s (from Keychain)\n", masked)
-	} else {
-		output.Printf("API Token: %s (from config file)\n", masked)
-	}
+	source := keychain.GetTokenSource()
+	output.Printf("API Token: %s (from %s)\n", masked, source)
 
 	return nil
 }
