@@ -28,27 +28,50 @@ jobs:
         with:
           go-version: "1.21"
 
+      - name: Set build variables
+        id: vars
+        run: |
+          echo "VERSION=${{ env.TAG }}" >> $GITHUB_OUTPUT
+          echo "COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+
       - name: Build macOS ARM64
         run: |
-          GOOS=darwin GOARCH=arm64 go build -o slack-chat-api ./cmd/slack-chat-api
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w \
+            -X github.com/piekstra/slack-chat-api/internal/version.Version=${{ steps.vars.outputs.VERSION }} \
+            -X github.com/piekstra/slack-chat-api/internal/version.Commit=${{ steps.vars.outputs.COMMIT }} \
+            -X github.com/piekstra/slack-chat-api/internal/version.Date=${{ steps.vars.outputs.DATE }}" \
+            -o slack-chat-api ./cmd/slack-chat-api
           tar -czvf slack-chat-api_${{ env.TAG }}_darwin_arm64.tar.gz slack-chat-api
           rm slack-chat-api
 
       - name: Build macOS AMD64
         run: |
-          GOOS=darwin GOARCH=amd64 go build -o slack-chat-api ./cmd/slack-chat-api
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w \
+            -X github.com/piekstra/slack-chat-api/internal/version.Version=${{ steps.vars.outputs.VERSION }} \
+            -X github.com/piekstra/slack-chat-api/internal/version.Commit=${{ steps.vars.outputs.COMMIT }} \
+            -X github.com/piekstra/slack-chat-api/internal/version.Date=${{ steps.vars.outputs.DATE }}" \
+            -o slack-chat-api ./cmd/slack-chat-api
           tar -czvf slack-chat-api_${{ env.TAG }}_darwin_amd64.tar.gz slack-chat-api
           rm slack-chat-api
 
       - name: Build Linux ARM64
         run: |
-          GOOS=linux GOARCH=arm64 go build -o slack-chat-api ./cmd/slack-chat-api
+          GOOS=linux GOARCH=arm64 go build -ldflags "-s -w \
+            -X github.com/piekstra/slack-chat-api/internal/version.Version=${{ steps.vars.outputs.VERSION }} \
+            -X github.com/piekstra/slack-chat-api/internal/version.Commit=${{ steps.vars.outputs.COMMIT }} \
+            -X github.com/piekstra/slack-chat-api/internal/version.Date=${{ steps.vars.outputs.DATE }}" \
+            -o slack-chat-api ./cmd/slack-chat-api
           tar -czvf slack-chat-api_${{ env.TAG }}_linux_arm64.tar.gz slack-chat-api
           rm slack-chat-api
 
       - name: Build Linux AMD64
         run: |
-          GOOS=linux GOARCH=amd64 go build -o slack-chat-api ./cmd/slack-chat-api
+          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w \
+            -X github.com/piekstra/slack-chat-api/internal/version.Version=${{ steps.vars.outputs.VERSION }} \
+            -X github.com/piekstra/slack-chat-api/internal/version.Commit=${{ steps.vars.outputs.COMMIT }} \
+            -X github.com/piekstra/slack-chat-api/internal/version.Date=${{ steps.vars.outputs.DATE }}" \
+            -o slack-chat-api ./cmd/slack-chat-api
           tar -czvf slack-chat-api_${{ env.TAG }}_linux_amd64.tar.gz slack-chat-api
           rm slack-chat-api
 
