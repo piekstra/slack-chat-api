@@ -239,6 +239,12 @@ slack-chat-api users list --limit 50
 
 # Get user info
 slack-chat-api users get U1234567890
+
+# Search users
+slack-chat-api users search "john"
+slack-chat-api users search "john@company.com" --field email
+slack-chat-api users search "John Smith" --field display_name
+slack-chat-api users search "bot" --include-bots
 ```
 
 #### Users Command Reference
@@ -247,6 +253,15 @@ slack-chat-api users get U1234567890
 |---------|-------|-------------|
 | `list` | `--limit` | List all users |
 | `get <id>` | | Get user details |
+| `search <query>` | `--limit`, `--field`, `--include-bots` | Search users by name, email, or display name |
+
+#### Users Search Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | `1000` | Maximum users to search through |
+| `--field` | `all` | Search field: `all`, `name`, `email`, `display_name` |
+| `--include-bots` | `false` | Include bot users in results |
 
 ### Messages
 
@@ -321,6 +336,14 @@ slack-chat-api search all "quarterly" --sort timestamp
 
 # With pagination
 slack-chat-api search messages "error" --count 50 --page 2
+
+# Using query builder flags (alternative to modifiers in query string)
+slack-chat-api search messages "meeting" --in "#general"
+slack-chat-api search messages "update" --from "@alice"
+slack-chat-api search messages "report" --scope public
+slack-chat-api search messages "project" --after 2025-01-01 --before 2025-12-31
+slack-chat-api search messages "link" --has-link
+slack-chat-api search files "document" --type pdf
 ```
 
 #### Search Modifiers
@@ -339,9 +362,9 @@ slack-chat-api search messages "error" --count 50 --page 2
 
 | Command | Flags | Description |
 |---------|-------|-------------|
-| `messages <query>` | `--count`, `--page`, `--sort`, `--sort-dir`, `--highlight` | Search messages |
-| `files <query>` | `--count`, `--page`, `--sort`, `--sort-dir`, `--highlight` | Search files |
-| `all <query>` | `--count`, `--page`, `--sort`, `--sort-dir`, `--highlight` | Search messages and files |
+| `messages <query>` | `--count`, `--page`, `--sort`, `--sort-dir`, `--highlight`, `--scope`, `--in`, `--from`, `--after`, `--before`, `--has-link`, `--has-reaction` | Search messages |
+| `files <query>` | `--count`, `--page`, `--sort`, `--sort-dir`, `--highlight`, `--scope`, `--in`, `--from`, `--after`, `--before`, `--type`, `--has-pin` | Search files |
+| `all <query>` | `--count`, `--page`, `--sort`, `--sort-dir`, `--highlight`, `--scope`, `--in`, `--from`, `--after`, `--before`, `--has-link`, `--has-reaction` | Search messages and files |
 
 #### Search Flags
 
@@ -352,6 +375,22 @@ slack-chat-api search messages "error" --count 50 --page 2
 | `--sort` | `-s` | `score` | Sort by: `score` or `timestamp` |
 | `--sort-dir` | | `desc` | Sort direction: `asc` or `desc` |
 | `--highlight` | | `false` | Highlight matching terms |
+
+#### Query Builder Flags
+
+These flags provide an alternative to using modifiers in the query string:
+
+| Flag | Description |
+|------|-------------|
+| `--scope` | Search scope: `all`, `public`, `private`, `dm`, `mpim` |
+| `--in` | Filter by channel (e.g., `#general` or `general`) |
+| `--from` | Filter by user (e.g., `@alice` or `alice`) |
+| `--after` | Content after date (YYYY-MM-DD) |
+| `--before` | Content before date (YYYY-MM-DD) |
+| `--has-link` | Messages containing links |
+| `--has-reaction` | Messages with reactions |
+| `--type` | File type filter (files only, e.g., `pdf`, `image`) |
+| `--has-pin` | Files that are pinned (files only) |
 
 ### Workspace
 
