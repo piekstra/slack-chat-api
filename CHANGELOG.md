@@ -4,6 +4,7 @@
 
 ### Features
 
+* Enhanced search capabilities: user search, scope filters, query builder flags ([#48](https://github.com/piekstra/slack-chat-api/pull/48))
 * Replace release-please with auto-release on merge ([#45](https://github.com/piekstra/slack-chat-api/pull/45))
 
 ### Bug Fixes
