@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* Replace release-please with auto-release on merge ([#45](https://github.com/piekstra/slack-chat-api/pull/45))
+
+### Bug Fixes
+
+* Unescape shell-escaped exclamation marks in message text ([#47](https://github.com/piekstra/slack-chat-api/pull/47))
+* Use PAT for release-please to trigger release workflow ([#43](https://github.com/piekstra/slack-chat-api/pull/43))
+
+### Other Changes
+
+* Update remaining docs to use slack-chat-api ([#46](https://github.com/piekstra/slack-chat-api/pull/46))
+
 ## [3.0.1](https://github.com/piekstra/slack-chat-api/compare/v3.0.0...v3.0.1) (2026-01-12)
 
 
